@@ -1,9 +1,10 @@
 <#
 .SYNOPSIS
- - Sets default speech language to en-GB
+ - Sets default speech language to defined preferred language
  - Disables language sync to prevent language preferences being overwritten by Enterprise state Roaming captured settings
  - Runs language resource reconcile task sequence to avoid delays to updating language preferences
- - Sets preferred language to English (United Kingdom) and removes US
+ - Sets the defined preferred language and removes US
+ - Schedules the changes to happen at logon
     
 .DESCRIPTION
  - Designed to run post a Windows 10 Autopilot deployment
@@ -53,12 +54,12 @@ $SecondaryInputCode = "0409:00000409"
 $PrimaryGeoID = "242"
 
 
-# Sets the default Speech Language to en-GB
+# Sets the default Speech Language to Primary Language
 
 function SetSpeechLanguage {
        if((Test-Path -LiteralPath "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\SpeechRecognizer") -ne $true) 
 {  New-Item "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\SpeechRecognizer" -force -ea SilentlyContinue | Out-Null }
-Set-ItemProperty "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\SpeechRecognizer" -Name 'RecognizedLanguage' -Type "String" -Value "en-GB" -Force
+Set-ItemProperty "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\SpeechRecognizer" -Name 'RecognizedLanguage' -Type "String" -Value $PrimaryLanguage -Force
     }
 
 # Disable language sync to prevent language preferences being overwritten by other device configurations synced via Enterprise State Roaming
@@ -93,7 +94,7 @@ Start-Sleep 10
 			
 # Set preferred languages
 $NewLanguageList = New-WinUserLanguageList -Language $PrimaryLanguage
-if ($NewLanguageList.LanguageTag -ne "en-GB") {
+if ($NewLanguageList.LanguageTag -ne $PrimaryLanguage) {
 #$NewLanguageList.Add([Microsoft.InternationalSettings.Commands.WinUserLanguage]::new($SecondaryLanguage))
 $NewLanguageList[1].InputMethodTips.Clear()
 $NewLanguageList[1].InputMethodTips.Add($PrimaryInputCode)
@@ -101,20 +102,20 @@ $NewLanguageList[1].InputMethodTips.Add($PrimaryInputCode)
 
 #$NewLanguageList[1].InputMethodTips.Add($SecondaryInputCode)
 $CurrentLangList = (get-winuserlanguagelist)[0].LanguageTag
-if ($CurrentLangList -eq "en-GB") {Set-WinUserLanguageList $NewLanguageList -Force}
+if ($CurrentLangList -eq $PrimaryLanguage) {Set-WinUserLanguageList $NewLanguageList -Force}
 
 Set-WinUILanguageOverride -Language $PrimaryLanguage
 
 $CurrentSysLocale = (Get-WinSystemLocale)[0].Name
-if ($CurrentSysLocale -eq "en-GB") {Set-WinSystemLocale -SystemLocale $PrimaryLanguage}
+if ($CurrentSysLocale -eq $PrimaryLanguage) {Set-WinSystemLocale -SystemLocale $PrimaryLanguage}
 
 $CurrentCulture = (Get-Culture)[0].Name
-if ($CurrentCulture -eq "en-GB") {Set-Culture -CultureInfo $PrimaryLanguage}
+if ($CurrentCulture -eq $PrimaryLanguage) {Set-Culture -CultureInfo $PrimaryLanguage}
 
 $CurrentHomeLocation = (Get-WinHomeLocation)[0].GeoId
-if ($CurrentHomeLocation -eq 242) {Set-WinHomeLocation -GeoId $PrimaryGeoID}
+if ($CurrentHomeLocation -eq $PrimaryGeoID) {Set-WinHomeLocation -GeoId $PrimaryGeoID}
 
-# Sets the default Speech Language to en-GB
+# Sets the default Speech Language to defined primary language
 Write-host "Set Speech Language"
 SetSpeechLanguage
 
@@ -143,9 +144,11 @@ Stop-transcript
 
 if (Test-RunningAsSystem) {
 
-Set-WinSystemLocale -SystemLocale en-GB
-# Sets the MUI Perffered UI Language to en-GB (run by System)
-Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'PreferredUILanguages' -Type "MultiString" -Value "en-GB" -Force
+#Set System Local
+Set-WinSystemLocale -SystemLocale $PrimaryLanguage
+
+# Sets the MUI Perffered UI Language to the defined primary language (run by System)
+Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'PreferredUILanguages' -Type "MultiString" -Value $PrimaryLanguage -Force
 
 	Start-Transcript -Path $(Join-Path -Path $env:temp -ChildPath "SetLanguageScheduledTask.log")
 	Write-Output "Running as System --> creating scheduled task which will after logon 3 times with 1 minute intervals"
@@ -172,7 +175,7 @@ Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'Pr
 	$schtaskScript | Out-File -FilePath $scriptPath -Force
 	
 	
-		###########################################################################################
+	###########################################################################################
 	# Create dummy vbscript to hide PowerShell Window popping up
 	###########################################################################################
 
@@ -204,8 +207,8 @@ Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'Pr
 	# Register a scheduled task to run for all users
 	###########################################################################################
 
-	$schtaskName = "SetPreferredLanguage_enGB"
-	$schtaskDescription = "Set preferred Language and Display Language to English (UK) and remove en-US"
+	$schtaskName = "SetPreferredLanguage_$PrimaryLanguage"
+	$schtaskDescription = "Set preferred Language and Display Language to $PrimaryLanguage and remove en-US"
 
 $trigger = New-ScheduledTaskTrigger -AtLogon
 $principal= New-ScheduledTaskPrincipal -GroupId "S-1-5-32-545" -Id "Author"
@@ -216,10 +219,10 @@ $settings= New-ScheduledTaskSettingsSet -Compatibility Win8 -AllowStartIfOnBatte
 $null=Register-ScheduledTask -TaskName $schtaskName -Trigger $trigger -Action $action -Principal $principal -Description $schtaskDescription -Settings $settings -Force
 start-sleep -seconds 5
 
-#Set failsafe scheduled task to run on first script run and at each logon, then retire after 3 hours and delete after 1 day.
+#Set failsafe scheduled task to run on first script run and at each logon, then retire after 14 days delete after 15 day.
 $task = (Get-ScheduledTask -TaskName "$schtaskName")
-$task.Triggers[0].EndBoundary = (Get-Date).AddMinutes(180).ToString('s')
-$task.Settings.DeleteExpiredTaskAfter = "P1D"
+$task.Triggers[0].EndBoundary = (Get-Date).AddDays(14).ToString('s')
+$task.Settings.DeleteExpiredTaskAfter = "P15D"
 Set-ScheduledTask -InputObject $task
 start-sleep -seconds 5
 Start-ScheduledTask -TaskName $schtaskName
