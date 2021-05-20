@@ -98,7 +98,7 @@ Write-Host "Turning off Edge desktop icon"
 reg.exe add "HKLM\SOFTWARE\Policies\Microsoft\EdgeUpdate" /v "CreateDesktopShortcutDefault" /t REG_DWORD /d 0 /f /reg:64 | Out-Host
 
 # STEP 9: Enable LSA Protection
-#Write-Host "Enable LSA Protection in Audit Mode"
+Write-Host "Enable LSA Protection in Audit Mode"
 if((Test-Path -LiteralPath "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe") -ne $true) 
 {  New-Item "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe" -force -ea SilentlyContinue | Out-Null }
 
@@ -106,6 +106,8 @@ reg.exe add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v RunAsPPL /t REG_DWORD
 reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\LSASS.exe" /v AuditLevel /t REG_DWORD /d 8 /f /reg:64 | Out-Host
 
 # STEP 10 : Copy Local files to Program Files folders e.g. MS Word Templates, Fonts Etc
+Write-Host "Copy files"
+
 Expand-Archive -LiteralPath '.\{ZIPFILENAME}.zip' -DestinationPath "C:\Program Files (x86)\" -Force
 Expand-Archive -LiteralPath '.\{ZIPFILENAME}.zip' -DestinationPath "C:\Program Files\" -Force
 
@@ -113,14 +115,16 @@ Expand-Archive -LiteralPath '.\{ZIPFILENAME}.zip' -DestinationPath "C:\Program F
 # To prevent this issue : https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/language-packs-known-issue
 REG.exe add "HKLM\Software\Policies\Microsoft\Control Panel\International" /v BlockCleanupOfUnusedPreinstalledLangPacks /t REG_DWORD /d 1 /f /reg:64
 
-# STEP 12: Change language
+# STEP 12: Install preferred language pack
+Write-Host "Install preferred language pack"
+
 if ($config.Config.Language) {
 	Write-Host "Configuring language using: $($config.Config.Language)"
 	& $env:SystemRoot\System32\control.exe "intl.cpl,,/f:`"$($installFolder)$($config.Config.Language)`""
 }
 
 # STEP 13: Add Windows Hello Facial recognition feature
-#Write-Host "Turning off Edge desktop icon"
+#Write-Host "Add Windows Hello facial recognition feature"
 #Get-WindowsCapability -online | Where-Object {$_.name -like 'Hello.Face*'} | Add-WindowsCapability -online
 
 # STEP 14: Disable Fast startup to work around windows update issue detailed here : https://docs.microsoft.com/en-US/troubleshoot/windows-client/deployment/updates-not-install-with-fast-startup 
