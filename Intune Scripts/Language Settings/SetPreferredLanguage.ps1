@@ -8,18 +8,19 @@
     
 .DESCRIPTION
  - Designed to run post a Windows 10 Autopilot deployment
- - At first logon the preferred language is set to English (United Kingdom) as well as Regional Format, Keyboard, Speech, Apps and websites
- - At second logon the Windows display language is set to English (United Kingdom) and activated on the subsequent logon.
+ - At first logon the preferred language is set as well as Regional Format, Keyboard, Speech, Apps and websites.
+ - At second logon the Windows display language is set and activated on the subsequent logon.
  - Log path C:\Windows\Temp
  - Local file install location : C:\ProgramData\Set-DefaultLanguage
  - Credit to Nicola Sutter for local script construction and execution technique : https://github.com/nicolonsky
  
 .EXAMPLE
-    1. Open endpoint.microsoft.com
-    2. Browse to Devices > Windows > PowerShell Scripts
-    3. Attach this script
-    4. Run in system context
-    5. Assign to a user group
+    1. Define the preferred language settings in the 'Variables' section below and save.
+    2. Open endpoint.microsoft.com
+    3. Browse to Devices > Windows > PowerShell Scripts
+    4. Attach this script
+    5. Run in system context
+    6. Assign to a user group
     Note: This script is dependant on the required Language experience pack (LXP) being installed via Microsoft Store + commands run to install the individual features (see associated Autopilot Branding Script)
    
 .NOTES
@@ -31,6 +32,10 @@
                       
 ###########################################################################################
 # Start transcript for logging
+###########################################################################################
+
+###########################################################################################
+# Variables
 ###########################################################################################
 
 Start-Transcript -Path $(Join-Path $env:temp "SetLanguage.log")
