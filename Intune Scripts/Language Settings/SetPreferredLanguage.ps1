@@ -14,7 +14,7 @@
  - Local file install location : C:\ProgramData\Set-DefaultLanguage
  - Credit to Nicola Sutter for local script construction and execution technique : https://github.com/nicolonsky
  
-.USAGE
+.EXAMPLE
     1. Open endpoint.microsoft.com
     2. Browse to Devices > Windows > PowerShell Scripts
     3. Attach this script
