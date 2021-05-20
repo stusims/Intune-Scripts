@@ -207,8 +207,8 @@ Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'Pr
 	# Register a scheduled task to run for all users
 	###########################################################################################
 
-	$schtaskName = "SetPreferredLanguage_$PrimaryLanguage"
-	$schtaskDescription = "Set preferred Language and Display Language to $PrimaryLanguage and remove en-US"
+	$schtaskName = "SetPreferredLanguage"
+	$schtaskDescription = "Set preferred Language and Display Language and remove en-US"
 
 $trigger = New-ScheduledTaskTrigger -AtLogon
 $principal= New-ScheduledTaskPrincipal -GroupId "S-1-5-32-545" -Id "Author"
@@ -219,10 +219,10 @@ $settings= New-ScheduledTaskSettingsSet -Compatibility Win8 -AllowStartIfOnBatte
 $null=Register-ScheduledTask -TaskName $schtaskName -Trigger $trigger -Action $action -Principal $principal -Description $schtaskDescription -Settings $settings -Force
 start-sleep -seconds 5
 
-#Set failsafe scheduled task to run on first script run and at each logon, then retire after 14 days delete after 15 day.
+#Set failsafe scheduled task to run on first script run and at each logon, then retire after 14 days delete after 16 day.
 $task = (Get-ScheduledTask -TaskName "$schtaskName")
 $task.Triggers[0].EndBoundary = (Get-Date).AddDays(14).ToString('s')
-$task.Settings.DeleteExpiredTaskAfter = "P15D"
+$task.Settings.DeleteExpiredTaskAfter = "P16D"
 Set-ScheduledTask -InputObject $task
 start-sleep -seconds 5
 Start-ScheduledTask -TaskName $schtaskName
