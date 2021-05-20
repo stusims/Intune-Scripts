@@ -123,4 +123,24 @@ if ($config.Config.Language) {
 #Write-Host "Turning off Edge desktop icon"
 #Get-WindowsCapability -online | Where-Object {$_.name -like 'Hello.Face*'} | Add-WindowsCapability -online
 
+# STEP 14: Disable Fast startup to work around windows update issue detailed here : https://docs.microsoft.com/en-US/troubleshoot/windows-client/deployment/updates-not-install-with-fast-startup 
+
+$Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power"
+$Name = "HiberbootEnabled"
+$value = "0"
+ 
+#Check if $Path exist. If not, create $Path and then add the item and set value.
+ 
+If (!(Test-Path $Path))
+ 
+{
+    New-Item -Path $Path -Force | Out-Null
+    New-ItemProperty -Path $Path -Name $Name -Value $value -PropertyType DWORD -Force | Out-Null
+}
+ 
+ ELSE
+{
+    New-ItemProperty -Path $Path -Name $Name -Value $value -PropertyType DWORD -Force | Out-Null
+}
+
 Stop-Transcript
