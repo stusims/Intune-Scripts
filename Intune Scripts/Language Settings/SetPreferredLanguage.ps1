@@ -208,7 +208,7 @@ Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'Pr
 	###########################################################################################
 
 	$schtaskName = "SetPreferredLanguage"
-	$schtaskDescription = "Set preferred Language and Display Language and remove en-US"
+	$schtaskDescription = "Set preferred Language and Display Language and remove en-US from list"
 
 $trigger = New-ScheduledTaskTrigger -AtLogon
 $principal= New-ScheduledTaskPrincipal -GroupId "S-1-5-32-545" -Id "Author"
