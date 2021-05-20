@@ -147,4 +147,8 @@ If (!(Test-Path $Path))
     New-ItemProperty -Path $Path -Name $Name -Value $value -PropertyType DWORD -Force | Out-Null
 }
 
+# STEP 15: Disable firstlogon animation for win10
+write-host "Disable firstlogon animation for win10"
+reg.exe add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v EnableFirstLogonAnimation /t REG_DWORD /d 0 /f | Out-Host
+
 Stop-Transcript
