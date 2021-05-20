@@ -151,7 +151,7 @@ Set-WinSystemLocale -SystemLocale $PrimaryLanguage
 Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'PreferredUILanguages' -Type "MultiString" -Value $PrimaryLanguage -Force
 
 	Start-Transcript -Path $(Join-Path -Path $env:temp -ChildPath "SetLanguageScheduledTask.log")
-	Write-Output "Running as System --> creating scheduled task which will after logon 3 times with 1 minute intervals"
+	Write-Output "Running as System --> creating scheduled task to Set preferred Language"
 
 	###########################################################################################
 	# Get the current script path and content for the user script and save it to the client
