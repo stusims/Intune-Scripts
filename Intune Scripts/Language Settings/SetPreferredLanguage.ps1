@@ -168,7 +168,7 @@ Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'Pr
 		New-Item -ItemType Directory -Path $scriptSavePath -Force
 	}
 
-	$scriptSavePathName = "SetDefaultLanguage_enGB.ps1"
+	$scriptSavePathName = "SetDefaultLanguage.ps1"
 
 	$scriptPath = $(Join-Path -Path $scriptSavePath -ChildPath $scriptSavePathName)
 
@@ -219,7 +219,7 @@ $settings= New-ScheduledTaskSettingsSet -Compatibility Win8 -AllowStartIfOnBatte
 $null=Register-ScheduledTask -TaskName $schtaskName -Trigger $trigger -Action $action -Principal $principal -Description $schtaskDescription -Settings $settings -Force
 start-sleep -seconds 5
 
-#Set failsafe scheduled task to run on first script run and at each logon, then retire after 14 days delete after 16 day.
+#Set scheduled task to run on first script run and at each logon, then retire after 14 days delete after 16 days
 $task = (Get-ScheduledTask -TaskName "$schtaskName")
 $task.Triggers[0].EndBoundary = (Get-Date).AddDays(14).ToString('s')
 $task.Settings.DeleteExpiredTaskAfter = "P16D"
