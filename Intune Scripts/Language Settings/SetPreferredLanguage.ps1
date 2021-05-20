@@ -20,7 +20,7 @@
     3. Attach this script
     4. Run in system context
     5. Assign to a user group
-    Note: This script is dependant on en-gb Language experience pack (LXP) being installed via Microsoft Store + commands run to install the individual features (see associated Autopilot Branding Script)
+    Note: This script is dependant on the required Language experience pack (LXP) being installed via Microsoft Store + commands run to install the individual features (see associated Autopilot Branding Script)
    
 .NOTES
     Version:          1.0.0
@@ -34,6 +34,12 @@
 ###########################################################################################
 
 Start-Transcript -Path $(Join-Path $env:temp "SetLanguage.log")
+# Language codes
+$PrimaryLanguage = "en-GB"
+$SecondaryLanguage = "en-US"
+$PrimaryInputCode = "0809:00000809"
+$SecondaryInputCode = "0409:00000409"
+$PrimaryGeoID = "242"
 
 #check if running as system
 function Test-RunningAsSystem {
@@ -45,14 +51,6 @@ function Test-RunningAsSystem {
 }
 
 if (-not (Test-RunningAsSystem)) {
-
-# Language codes
-$PrimaryLanguage = "en-GB"
-$SecondaryLanguage = "en-US"
-$PrimaryInputCode = "0809:00000809"
-$SecondaryInputCode = "0409:00000409"
-$PrimaryGeoID = "242"
-
 
 # Sets the default Speech Language to Primary Language
 
@@ -210,6 +208,11 @@ Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'Pr
 	$schtaskName = "SetPreferredLanguage"
 	$schtaskDescription = "Set preferred Language and Display Language and remove en-US from list"
 
+#Delete the scheduled task if it already exists
+if ($(Get-ScheduledTask -TaskName $schtaskName -ErrorAction SilentlyContinue).TaskName -eq $schtaskName) {
+Unregister-ScheduledTask -TaskName $schtaskName -Confirm:$False }
+start-sleep -seconds 5
+
 $trigger = New-ScheduledTaskTrigger -AtLogon
 $principal= New-ScheduledTaskPrincipal -GroupId "S-1-5-32-545" -Id "Author"
 
@@ -219,7 +222,7 @@ $settings= New-ScheduledTaskSettingsSet -Compatibility Win8 -AllowStartIfOnBatte
 $null=Register-ScheduledTask -TaskName $schtaskName -Trigger $trigger -Action $action -Principal $principal -Description $schtaskDescription -Settings $settings -Force
 start-sleep -seconds 5
 
-#Set scheduled task to run on first script run and at each logon, then retire after 14 days delete after 16 days
+#Set failsafe scheduled task to run on first script run and at each logon, then retire after 14 days delete after 15 day.
 $task = (Get-ScheduledTask -TaskName "$schtaskName")
 $task.Triggers[0].EndBoundary = (Get-Date).AddDays(14).ToString('s')
 $task.Settings.DeleteExpiredTaskAfter = "P16D"
