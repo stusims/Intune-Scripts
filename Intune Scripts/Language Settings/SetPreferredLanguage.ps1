@@ -16,6 +16,7 @@
  
 .EXAMPLE
     1. Define the preferred language settings in the 'Variables' section below and save.
+    2. Decide on 
     2. Open endpoint.microsoft.com
     3. Browse to Devices > Windows > PowerShell Scripts
     4. Attach this script
@@ -31,20 +32,22 @@
 #>
                       
 ###########################################################################################
-# Start transcript for logging
+# 1.0 Start transcript for logging
 ###########################################################################################
 
 ###########################################################################################
-# Variables
+# 1.1 Variables
 ###########################################################################################
 
 Start-Transcript -Path $(Join-Path $env:temp "SetLanguage.log")
 # Language codes
-$PrimaryLanguage = "en-GB"
-$SecondaryLanguage = "en-US"
-$PrimaryInputCode = "0809:00000809"
-$SecondaryInputCode = "0409:00000409"
-$PrimaryGeoID = "242"
+$PrimaryLanguage = "en-GB" # Primary Language string, ref: https://docs.microsoft.com/en-us/cpp/c-runtime-library/language-strings?view=msvc-160
+$SecondaryLanguage = "en-US" # Secondary Language string, ref: {as per above url}
+$PrimaryInputCode = "0809:00000809" # Primary Keyboard Language, ref: https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-8.1-and-8/hh825682(v=win.10)
+$SecondaryInputCode = "0409:00000409" # Secondary Keyboard Language, ref: https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-8.1-and-8/hh825682(v=win.10)
+$PrimaryGeoID = "242" # Geographical location identifier (decimal), ref: https://docs.microsoft.com/en-us/windows/win32/intl/table-of-geographical-locations
+$AddSecondary = "Yes"  #Set to yes to add a Secondary language
+$RemoveSecondary = "Yes" # Set to yes to remove secondary language from list
 
 #check if running as system
 function Test-RunningAsSystem {
@@ -57,7 +60,9 @@ function Test-RunningAsSystem {
 
 if (-not (Test-RunningAsSystem)) {
 
-# Sets the default Speech Language to Primary Language
+###########################################################################################
+# 1.2 Sets the default Speech Language to Primary Language
+###########################################################################################
 
 function SetSpeechLanguage {
        if((Test-Path -LiteralPath "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\SpeechRecognizer") -ne $true) 
@@ -65,7 +70,9 @@ function SetSpeechLanguage {
 Set-ItemProperty "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\SpeechRecognizer" -Name 'RecognizedLanguage' -Type "String" -Value $PrimaryLanguage -Force
     }
 
-# Disable language sync to prevent language preferences being overwritten by other device configurations synced via Enterprise State Roaming
+##############################################################################################################################################################
+# 1.3 (Optional Disable language sync to prevent language preferences being overwritten by other device configurations synced through Enterprise State Roaming
+##############################################################################################################################################################
 
 function Disable-LanguageSync {
 
@@ -91,22 +98,39 @@ function Disable-LanguageSync {
 Write-host "Calling function to disable Language Preference Sync"
 Disable-LanguageSync
 
- # trigger 'LanguageComponentsInstaller\ReconcileLanguageResources' to avoid delay to language pack updating
+###############################################################################################################
+# 1.4 trigger 'LanguageComponentsInstaller\ReconcileLanguageResources' to avoid delay to language pack updating
+###############################################################################################################
+
 Start-ScheduledTask -TaskName "\Microsoft\Windows\LanguageComponentsInstaller\ReconcileLanguageResources"
 Start-Sleep 10
-			
-# Set preferred languages
+
+###############################################################################################################
+# 1.5 Set preferred languages
+###############################################################################################################
+
 $NewLanguageList = New-WinUserLanguageList -Language $PrimaryLanguage
-if ($NewLanguageList.LanguageTag -ne $PrimaryLanguage) {
-#$NewLanguageList.Add([Microsoft.InternationalSettings.Commands.WinUserLanguage]::new($SecondaryLanguage))
+
+If (!($AddSecondary -ne 'Yes' -And $NewLanguageList.LanguageTag -ne $PrimaryLanguage))
+ 
+{
+#Only adds primary language
 $NewLanguageList[1].InputMethodTips.Clear()
 $NewLanguageList[1].InputMethodTips.Add($PrimaryInputCode)
+Set-WinUserLanguageList $NewLanguageList -Force
+}
+ 
+ELSE
+{
+# Adds primary and secondary languages
+$NewLanguageList.Add([Microsoft.InternationalSettings.Commands.WinUserLanguage]::new($SecondaryLanguage))
+$NewLanguageList[1].InputMethodTips.Clear()
+$NewLanguageList[1].InputMethodTips.Add($PrimaryInputCode)
+$NewLanguageList[1].InputMethodTips.Add($SecondaryInputCode)
+Set-WinUserLanguageList $NewLanguageList -Force
 }
 
-#$NewLanguageList[1].InputMethodTips.Add($SecondaryInputCode)
-$CurrentLangList = (get-winuserlanguagelist)[0].LanguageTag
-if ($CurrentLangList -eq $PrimaryLanguage) {Set-WinUserLanguageList $NewLanguageList -Force}
-
+#Prevents display language being dynamically determined
 Set-WinUILanguageOverride -Language $PrimaryLanguage
 
 $CurrentSysLocale = (Get-WinSystemLocale)[0].Name
@@ -122,11 +146,19 @@ if ($CurrentHomeLocation -eq $PrimaryGeoID) {Set-WinHomeLocation -GeoId $Primary
 Write-host "Set Speech Language"
 SetSpeechLanguage
 
-#Remove en-US Language Pack from preference list
+
+# Removes the secondary Language from the preference list
+
+If (!($RemoveSecondary -eq 'Yes'))
+ 
+{
 $LangList = Get-WinUserLanguageList
 $MarkedLang = $LangList | where LanguageTag -eq "en-US"
 $LangList.Remove($MarkedLang)
 Set-WinUserLanguageList $LangList -Force
+}
+ 
+
 }
 
 ###########################################################################################
