@@ -4,12 +4,12 @@
         <gs:User UserID="Current" CopySettingsToSystemAcct="true" CopySettingsToDefaultUserAcct="true" /> 
     </gs:UserList>
 
-<!-- GeoID -->
+<!-- GeoID ref: https://docs.microsoft.com/en-us/windows/win32/intl/table-of-geographical-locations-->
 <gs:LocationPreferences>  
 <gs:GeoID Value="242"/>
 </gs:LocationPreferences>
  
-<!--Display Language--> 
+<!--Display Language ref: https://docs.microsoft.com/en-us/cpp/c-runtime-library/language-strings?view=msvc-160--> 
 <gs:MUILanguagePreferences> 
 <gs:MUILanguage Value="en-GB" /> 
 <gs:MUIFallback Value="en-US" /> 
@@ -18,9 +18,10 @@
  <!-- system locale -->
  <gs:SystemLocale Name="en-GB"/> 
 
-<!-- input preferences -->
+<!-- input preferences ref: https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-8.1-and-8/hh825682(v=win.10) -->
  <gs:InputPreferences>
  <gs:InputLanguageID Action="add" ID="0809:00000809"/>
+ <gs:InputLanguageID Action="remove" ID="0409:00000409"/>
  </gs:InputPreferences>
 
 <!--User Locale-->
