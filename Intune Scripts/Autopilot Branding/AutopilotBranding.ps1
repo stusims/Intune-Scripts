@@ -147,8 +147,42 @@ If (!(Test-Path $Path))
     New-ItemProperty -Path $Path -Name $Name -Value $value -PropertyType DWORD -Force | Out-Null
 }
 
-# STEP 15: Disable firstlogon animation for win10
-write-host "Disable firstlogon animation for win10"
-reg.exe add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System" /v EnableFirstLogonAnimation /t REG_DWORD /d 0 /f | Out-Host
+<-- # STEP 15: Configure background
+Write-Host "Setting up Autopilot theme"
+Mkdir "C:\Windows\Resources\OEM Themes" -Force | Out-Null
+Copy-Item "$installFolder\Autopilot.theme" "C:\Windows\Resources\OEM Themes\Autopilot.theme" -Force
+Mkdir "C:\Windows\web\wallpaper\Autopilot" -Force | Out-Null
+Copy-Item "$installFolder\Autopilot.jpg" "C:\Windows\web\wallpaper\Autopilot\Autopilot.jpg" -Force
+Write-Host "Setting Autopilot theme as the new user default"
+reg.exe load HKLM\TempUser "C:\Users\Default\NTUSER.DAT" | Out-Host
+reg.exe add "HKLM\TempUser\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes" /v InstallTheme /t REG_EXPAND_SZ /d "%SystemRoot%\resources\OEM Themes\Autopilot.theme" /f | Out-Host
+reg.exe unload HKLM\TempUser | Out-Host
+-->
+
+<--# STEP 16: Configure OEM branding info
+if ($config.Config.OEMInfo)
+{
+	Write-Host "Configuring OEM branding info"
+
+	reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Manufacturer /t REG_SZ /d "$($config.Config.OEMInfo.Manufacturer)" /f /reg:64 | Out-Host
+	reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Model /t REG_SZ /d "$($config.Config.OEMInfo.Model)" /f /reg:64 | Out-Host
+	reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportPhone /t REG_SZ /d "$($config.Config.OEMInfo.SupportPhone)" /f /reg:64 | Out-Host
+	reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportHours /t REG_SZ /d "$($config.Config.OEMInfo.SupportHours)" /f /reg:64 | Out-Host
+	reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v SupportURL /t REG_SZ /d "$($config.Config.OEMInfo.SupportURL)" /f /reg:64 | Out-Host
+	Copy-Item "$installFolder\$($config.Config.OEMInfo.Logo)" "C:\Windows\$($config.Config.OEMInfo.Logo)" -Force
+	reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Logo /t REG_SZ /d "C:\Windows\$($config.Config.OEMInfo.Logo)" /f /reg:64 | Out-Host
+}
+-->
+
+<--# STEP 17: Enable UE-V
+Write-Host "Enabling UE-V"
+Enable-UEV
+Set-UevConfiguration -Computer -SettingsStoragePath "%OneDriveCommercial%\UEV" -SyncMethod External -DisableWaitForSyncOnLogon
+Get-ChildItem "$($installFolder)UEV" -Filter *.xml | % {
+	Write-Host "Registering template: $($_.FullName)"
+	Register-UevTemplate -Path $_.FullName
+	
+}
+-->
 
 Stop-Transcript
