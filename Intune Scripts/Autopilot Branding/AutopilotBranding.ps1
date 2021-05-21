@@ -1,3 +1,47 @@
+<#
+.SYNOPSIS
+ - Windows 10 branding script run during Autopilot device setup
+ - Adapted from Michael Niehaus original branding script: https://github.com/mtniehaus/AutopilotBranding
+    
+.DESCRIPTION
+ - STEP 1: Set time zone (if specified)
+ - STEP 2: Remove specified default apps if they exist
+ - STEP 3: Install OneDrive per machine
+ - STEP 4: Don't let Edge create a desktop shortcut (roams to OneDrive, creates mess)
+ - STEP 5: Add features on demand (.Net Framework and language packs (dependant on Language packs being installed from Microsoft Store during Autopilot)
+ - STEP 6: Set default file association to apps
+ - STEP 7: Disable network location fly-out
+ - STEP 8: Disable new Edge desktop icon
+ - STEP 9: Enable LSA Protection
+ - STEP 10 : Copy Local files to Program Files folders e.g. MS Word Templates, Fonts Etc
+ - STEP 11: Disable Language Pack Cleanup
+ - STEP 12: Install preferred language pack
+ - STEP 13: Add Windows Hello Facial recognition feature
+ - STEP 14: Disable Fast startup to work around windows update issue detailed here : https://docs.microsoft.com/en-US/troubleshoot/windows-client/deployment/updates-not-install-with-fast-startup 
+ - STEP 15: Configure background
+ - STEP 16: Configure OEM branding info
+ - STEP 17: Enable UE-V
+ 
+ 
+.EXAMPLE
+    1. Modify config.xml, Associations.xml and language.xml to meet requirements
+    2. Hash out / in required / not required steps and save.
+    3. For steps 15 and 16 replace relevant branding files.
+    4. Create IntuneWIN containing Autopilot Branding folder structure, e.g. : intunewinapputil.exe -c .\AutopilotBranding -s AutopilotBranding.ps1 -o .\ -q
+    2. Open endpoint.microsoft.com
+    3. Browse to Devices > Windows > PowerShell Scripts
+    4. Attach this script
+    5. Run in system context
+    6. Assign to a user group
+    7. Ensure the required Language experience packs (LXP) are installed via Microsoft Store + commands run to install the individual features (see associated Autopilot Branding Script)
+   
+.NOTES
+    Version:          1.0.0
+    Author:           Stuart Sims
+    Creation Date:    18/05/2021
+    Purpose/Change:   Initial script development
+#>
+
 # If we are running as a 32-bit process on an x64 system, re-launch as a 64-bit process
 if ("$env:PROCESSOR_ARCHITEW6432" -ne "ARM64")
 {
@@ -37,7 +81,7 @@ else {
 	Start-Service -Name "lfsvc" -ErrorAction SilentlyContinue
 }
 
-# STEP 2: Remove specified provisioned apps if they exist
+# STEP 2: Remove specified default apps if they exist
 Write-Host "Removing specified in-box provisioned apps"
 $apps = Get-AppxProvisionedPackage -online
 $config.Config.RemoveApps.App | % {
@@ -83,13 +127,14 @@ if ($currentWU -eq 1)
 	Restart-Service wuauserv
 }
 
-# STEP 6: Customize default apps
+# STEP 6: Set default file association to apps
 if ($config.Config.DefaultApps) {
 	Write-Host "Setting default apps: $($config.Config.DefaultApps)"
 	& Dism.exe /Online /Import-DefaultAppAssociations:`"$($installFolder)$($config.Config.DefaultApps)`"
 }
 
 # STEP 7: Disable network location fly-out
+
 Write-Host "Turning off network location fly-out"
 reg.exe add "HKLM\SYSTEM\CurrentControlSet\Control\Network\NewNetworkWindowOff" /f
 
@@ -123,9 +168,10 @@ if ($config.Config.Language) {
 	& $env:SystemRoot\System32\control.exe "intl.cpl,,/f:`"$($installFolder)$($config.Config.Language)`""
 }
 
-# STEP 13: Add Windows Hello Facial recognition feature
-#Write-Host "Add Windows Hello facial recognition feature"
-#Get-WindowsCapability -online | Where-Object {$_.name -like 'Hello.Face*'} | Add-WindowsCapability -online
+<# STEP 13: Add Windows Hello Facial recognition feature
+Write-Host "Add Windows Hello facial recognition feature"
+Get-WindowsCapability -online | Where-Object {$_.name -like 'Hello.Face*'} | Add-WindowsCapability -online
+#>
 
 # STEP 14: Disable Fast startup to work around windows update issue detailed here : https://docs.microsoft.com/en-US/troubleshoot/windows-client/deployment/updates-not-install-with-fast-startup 
 
@@ -147,7 +193,7 @@ If (!(Test-Path $Path))
     New-ItemProperty -Path $Path -Name $Name -Value $value -PropertyType DWORD -Force | Out-Null
 }
 
-<-- # STEP 15: Configure background
+<# STEP 15: Configure background
 Write-Host "Setting up Autopilot theme"
 Mkdir "C:\Windows\Resources\OEM Themes" -Force | Out-Null
 Copy-Item "$installFolder\Autopilot.theme" "C:\Windows\Resources\OEM Themes\Autopilot.theme" -Force
@@ -157,9 +203,9 @@ Write-Host "Setting Autopilot theme as the new user default"
 reg.exe load HKLM\TempUser "C:\Users\Default\NTUSER.DAT" | Out-Host
 reg.exe add "HKLM\TempUser\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes" /v InstallTheme /t REG_EXPAND_SZ /d "%SystemRoot%\resources\OEM Themes\Autopilot.theme" /f | Out-Host
 reg.exe unload HKLM\TempUser | Out-Host
--->
+#>
 
-<--# STEP 16: Configure OEM branding info
+<# STEP 16: Configure OEM branding info
 if ($config.Config.OEMInfo)
 {
 	Write-Host "Configuring OEM branding info"
@@ -172,9 +218,9 @@ if ($config.Config.OEMInfo)
 	Copy-Item "$installFolder\$($config.Config.OEMInfo.Logo)" "C:\Windows\$($config.Config.OEMInfo.Logo)" -Force
 	reg.exe add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" /v Logo /t REG_SZ /d "C:\Windows\$($config.Config.OEMInfo.Logo)" /f /reg:64 | Out-Host
 }
--->
+#>
 
-<--# STEP 17: Enable UE-V
+<# STEP 17: Enable UE-V
 Write-Host "Enabling UE-V"
 Enable-UEV
 Set-UevConfiguration -Computer -SettingsStoragePath "%OneDriveCommercial%\UEV" -SyncMethod External -DisableWaitForSyncOnLogon
@@ -183,6 +229,6 @@ Get-ChildItem "$($installFolder)UEV" -Filter *.xml | % {
 	Register-UevTemplate -Path $_.FullName
 	
 }
--->
+#>
 
 Stop-Transcript
