@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
- - Sets default speech language to defined preferred language
+ - Sets default speech language to defined preferred language for Windows 10
  - Disables language sync to prevent language preferences being overwritten by Enterprise state Roaming captured settings
  - Runs language resource reconcile task sequence to avoid delays to updating language preferences
  - Sets the defined preferred language and removes US
