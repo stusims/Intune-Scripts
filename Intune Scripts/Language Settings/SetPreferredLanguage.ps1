@@ -8,21 +8,19 @@
     
 .DESCRIPTION
  - Designed to run post a Windows 10 Autopilot deployment
- - At first logon the preferred language is set as well as Regional Format, Keyboard, Speech, Apps and websites.
+ - At first logon the preferred language together with any defined secondary language as well as Regional Format, Keyboard, Speech, Apps and websites settings.
  - At second logon the Windows display language is set and activated on the subsequent logon.
  - Log path C:\Windows\Temp
  - Local file install location : C:\ProgramData\Set-DefaultLanguage
- - Credit to Nicola Sutter for local script construction and execution technique : https://github.com/nicolonsky
  
 .EXAMPLE
-    1. Define the preferred language settings in the 'Variables' section below and save.
-    2. Decide on 
+    1. Define the preferred language settings in section 1.1 'Language preference variables'
     2. Open endpoint.microsoft.com
     3. Browse to Devices > Windows > PowerShell Scripts
     4. Attach this script
     5. Run in system context
     6. Assign to a user group
-    Note: This script is dependant on the required Language experience pack (LXP) being installed via Microsoft Store + commands run to install the individual features (see associated Autopilot Branding Script)
+    7. Ensure the required Language experience packs (LXP) are installed via Microsoft Store + commands run to install the individual features (see associated Autopilot Branding Script)
    
 .NOTES
     Version:          1.0.0
@@ -35,19 +33,7 @@
 # 1.0 Start transcript for logging
 ###########################################################################################
 
-###########################################################################################
-# 1.1 Variables
-###########################################################################################
-
 Start-Transcript -Path $(Join-Path $env:temp "SetLanguage.log")
-# Language codes
-$PrimaryLanguage = "en-GB" # Primary Language string, ref: https://docs.microsoft.com/en-us/cpp/c-runtime-library/language-strings?view=msvc-160
-$SecondaryLanguage = "en-US" # Secondary Language string, ref: {as per above url}
-$PrimaryInputCode = "0809:00000809" # Primary Keyboard Language, ref: https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-8.1-and-8/hh825682(v=win.10)
-$SecondaryInputCode = "0409:00000409" # Secondary Keyboard Language, ref: https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-8.1-and-8/hh825682(v=win.10)
-$PrimaryGeoID = "242" # Geographical location identifier (decimal), ref: https://docs.microsoft.com/en-us/windows/win32/intl/table-of-geographical-locations
-$AddSecondary = "Yes"  #Set to yes to add a Secondary language
-$RemoveSecondary = "Yes" # Set to yes to remove secondary language from list
 
 #check if running as system
 function Test-RunningAsSystem {
@@ -58,10 +44,27 @@ function Test-RunningAsSystem {
 	}
 }
 
+###########################################################################################
+# 1.1 Language preference variables
+###########################################################################################
+
+$PrimaryLanguage = "en-GB" # Primary Language string, ref: https://docs.microsoft.com/en-us/cpp/c-runtime-library/language-strings?view=msvc-160
+$SecondaryLanguage = "en-US" # Secondary Language string, ref: {as per above url}
+$PrimaryInputCode = "0809:00000809" # Primary Keyboard Language, ref: https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-8.1-and-8/hh825682(v=win.10)
+$SecondaryInputCode = "0409:00000409" # Secondary Keyboard Language, ref: https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-8.1-and-8/hh825682(v=win.10)
+$PrimaryGeoID = "242" # Geographical location identifier (decimal), ref: https://docs.microsoft.com/en-us/windows/win32/intl/table-of-geographical-locations
+$AddSecondary = "Yes"  #Set to yes to add a Secondary language
+$RemoveSecondary = "Yes" # Set to yes to remove secondary language from list
+
+
+###########################################################################################
+# 2.0 Start of user context script
+###########################################################################################
+
 if (-not (Test-RunningAsSystem)) {
 
 ###########################################################################################
-# 1.2 Sets the default Speech Language to Primary Language
+# 2.1 Create Functions
 ###########################################################################################
 
 function SetSpeechLanguage {
@@ -69,10 +72,6 @@ function SetSpeechLanguage {
 {  New-Item "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\SpeechRecognizer" -force -ea SilentlyContinue | Out-Null }
 Set-ItemProperty "HKCU:\SOFTWARE\Microsoft\Speech_OneCore\Settings\SpeechRecognizer" -Name 'RecognizedLanguage' -Type "String" -Value $PrimaryLanguage -Force
     }
-
-##############################################################################################################################################################
-# 1.3 (Optional Disable language sync to prevent language preferences being overwritten by other device configurations synced through Enterprise State Roaming
-##############################################################################################################################################################
 
 function Disable-LanguageSync {
 
@@ -95,18 +94,22 @@ function Disable-LanguageSync {
         }
     }
 
+##############################################################################################################################################################
+# 2.2 Disable language sync to prevent language preferences being overwritten by other device configurations synced through Enterprise State Roaming
+##############################################################################################################################################################
+
 Write-host "Calling function to disable Language Preference Sync"
 Disable-LanguageSync
 
 ###############################################################################################################
-# 1.4 trigger 'LanguageComponentsInstaller\ReconcileLanguageResources' to avoid delay to language pack updating
+# 2.3 trigger 'LanguageComponentsInstaller\ReconcileLanguageResources' to avoid delay to language pack updating
 ###############################################################################################################
 
 Start-ScheduledTask -TaskName "\Microsoft\Windows\LanguageComponentsInstaller\ReconcileLanguageResources"
 Start-Sleep 10
 
 ###############################################################################################################
-# 1.5 Set preferred languages
+# 2.4 Set preferred languages
 ###############################################################################################################
 
 $NewLanguageList = New-WinUserLanguageList -Language $PrimaryLanguage
@@ -142,12 +145,17 @@ if ($CurrentCulture -eq $PrimaryLanguage) {Set-Culture -CultureInfo $PrimaryLang
 $CurrentHomeLocation = (Get-WinHomeLocation)[0].GeoId
 if ($CurrentHomeLocation -eq $PrimaryGeoID) {Set-WinHomeLocation -GeoId $PrimaryGeoID}
 
-# Sets the default Speech Language to defined primary language
+
+###########################################################################################
+# 2.5 Sets the default Speech Language to Primary Language
+###########################################################################################
+
 Write-host "Set Speech Language"
 SetSpeechLanguage
 
-
-# Removes the secondary Language from the preference list
+###########################################################################################
+# 2.6 Sets the default Speech Language to Primary Language
+###########################################################################################
 
 If (!($RemoveSecondary -eq 'Yes'))
  
@@ -159,22 +167,20 @@ Set-WinUserLanguageList $LangList -Force
 }
  
 
+###########################################################################################
+# End & finish transcript and user context script
+###########################################################################################
 }
-
-###########################################################################################
-# End & finish transcript
-###########################################################################################
-
 Stop-transcript
 
 ###########################################################################################
 # Done
 ###########################################################################################
 
-#!SCHTASKCOMESHERE!#
+#!ENDOFUSERSCRIPT!#
 
 ###########################################################################################
-# If this script is running under system (IME) scheduled task is created  (recurring)
+# 3.0 Start of system context script
 ###########################################################################################
 
 if (Test-RunningAsSystem) {
@@ -182,19 +188,23 @@ if (Test-RunningAsSystem) {
 #Set System Local
 Set-WinSystemLocale -SystemLocale $PrimaryLanguage
 
-# Sets the MUI Perffered UI Language to the defined primary language (run by System)
+##########################################################################################
+# 3.1 Sets the MUI Perffered UI Language to the defined primary language (run by System)
+###########################################################################################
+
 Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'PreferredUILanguages' -Type "MultiString" -Value $PrimaryLanguage -Force
 
-	Start-Transcript -Path $(Join-Path -Path $env:temp -ChildPath "SetLanguageScheduledTask.log")
-	Write-Output "Running as System --> creating scheduled task to Set preferred Language"
+	
+##########################################################################################
+# 3.2 Get the current script path and content for the user script and save it to the client
+###########################################################################################
 
-	###########################################################################################
-	# Get the current script path and content for the user script and save it to the client
-	###########################################################################################
+Start-Transcript -Path $(Join-Path -Path $env:temp -ChildPath "SetLanguageScheduledTask.log")
+	Write-Output "Running as System --> creating scheduled task to Set preferred Language"
 
 	$currentScript = Get-Content -Path $($PSCommandPath)
 
-	$schtaskScript = $currentScript[(0) .. ($currentScript.IndexOf("#!SCHTASKCOMESHERE!#") - 1)]
+	$schtaskScript = $currentScript[(0) .. ($currentScript.IndexOf("#!ENDOFUSERSCRIPT!#") - 1)]
 
 	$scriptSavePath = $(Join-Path -Path $env:ProgramData -ChildPath "Set-DefaultLanguage")
 
@@ -208,11 +218,10 @@ Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'Pr
 	$scriptPath = $(Join-Path -Path $scriptSavePath -ChildPath $scriptSavePathName)
 
 	$schtaskScript | Out-File -FilePath $scriptPath -Force
-	
-	
-	###########################################################################################
-	# Create dummy vbscript to hide PowerShell Window popping up
-	###########################################################################################
+
+##########################################################################################
+# 3.3 Create dummy vbscript to hide PowerShell Window popping up
+##########################################################################################
 
 	$vbsDummyScript = "
 	Dim shell,fso,file
@@ -238,14 +247,17 @@ Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\MUI\Settings" -Name 'Pr
 
 	$wscriptPath = Join-Path $env:SystemRoot -ChildPath "System32\wscript.exe"
 
-	###########################################################################################
-	# Register a scheduled task to run for all users
-	###########################################################################################
+###########################################################################################
+# 3.4 Register a scheduled task to run for all users
+###########################################################################################
 
 	$schtaskName = "SetPreferredLanguage"
 	$schtaskDescription = "Set preferred Language and Display Language and remove en-US from list"
 
-#Delete the scheduled task if it already exists
+###########################################################################################
+# 3.5 Delete the scheduled task if it already exists
+###########################################################################################
+
 if ($(Get-ScheduledTask -TaskName $schtaskName -ErrorAction SilentlyContinue).TaskName -eq $schtaskName) {
 Unregister-ScheduledTask -TaskName $schtaskName -Confirm:$False }
 start-sleep -seconds 5
@@ -253,13 +265,19 @@ start-sleep -seconds 5
 $trigger = New-ScheduledTaskTrigger -AtLogon
 $principal= New-ScheduledTaskPrincipal -GroupId "S-1-5-32-545" -Id "Author"
 
-#call the vbscript helper and pass the PosH script as argument
+###########################################################################################
+# 3.6 Call the vbscript helper and pass the PosH script as argument
+###########################################################################################
+
 $action = New-ScheduledTaskAction -Execute $wscriptPath -Argument "`"$dummyScriptPath`" `"$scriptPath`""
 $settings= New-ScheduledTaskSettingsSet -Compatibility Win8 -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $null=Register-ScheduledTask -TaskName $schtaskName -Trigger $trigger -Action $action -Principal $principal -Description $schtaskDescription -Settings $settings -Force
 start-sleep -seconds 5
 
-#Set failsafe scheduled task to run on first script run and at each logon, then retire after 14 days delete after 15 day.
+###########################################################################################
+# 3.7 Create scheduled task, run immediately and then at each logon, retire after 14 days delete after 15 day.
+###########################################################################################
+
 $task = (Get-ScheduledTask -TaskName "$schtaskName")
 $task.Triggers[0].EndBoundary = (Get-Date).AddDays(14).ToString('s')
 $task.Settings.DeleteExpiredTaskAfter = "P16D"
