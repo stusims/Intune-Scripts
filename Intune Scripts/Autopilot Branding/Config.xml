@@ -34,11 +34,12 @@
     <Feature>Language.TextToSpeech~~~en-GB~0.0.1.0</Feature>
     <Feature>NetFX3~~~~</Feature>
   </AddFeatures>
+  <!-- Set preferred language and preferences -->
   <Language>Language.xml</Language>
-  <!-- If you want to set a language, customize and reference this file: <Language>Language.xml</Language> -->
+  <!-- Set default file associations -->
   <DefaultApps>Associations.xml</DefaultApps>
   <RegisteredOwner>IT Support</RegisteredOwner>
-  <RegisteredOrganization>Savills</RegisteredOrganization>
+  <RegisteredOrganization>Contoso</RegisteredOrganization>
   <OEMInfo>
     <Manufacturer>Misc</Manufacturer>
     <Model>PC</Model>
