@@ -1,6 +1,42 @@
 #Script to rename content of Intune template files to match customer environment
 
 #Functions
+
+# Import Modules and connect to Azure AD and MSGraph
+
+Function Configure-Terminal {
+$Modules = "AzureAD","MSGraphFunctions","IntuneBackupAndRestore"
+
+write-host
+#Configure Import MSGraph and IntuneBackup and Restore functions
+write-host "Configure Import MSGraph and IntuneBackup and Restore functions" -ForegroundColor Green
+Write-host
+
+# Defining User Principal Name if not present
+
+            if($User -eq $null -or $User -eq ""){
+
+            $User = Read-Host -Prompt "Please specify your user principal name for Azure Authentication"
+            Write-Host
+
+            }
+
+    Foreach ($Module in $Modules) {
+        try {
+            if (Get-Module -ListAvailable -Name $Module) { 
+                Write-host "The module $Module is installed, continuing..."
+            } 
+            else {
+                Write-host "The module $Module being installed..."
+                Install-Module $Module -Scope CurrentUser -force
+            }
+        }
+        catch [System.Exception] {
+            Write-Warning -Message "An error occured while preparing the migration terminal: $($_.Exception.Message)";
+        }
+    }
+}
+
 function Get-AuthToken {
 
 <#
@@ -192,6 +228,65 @@ $DCP_resource = "deviceManagement/deviceConfigurations"
 
 ####################################################
 
+Function Get-ADMXPolicy(){
+
+<#
+.SYNOPSIS
+This function is used to get ADministrative Templates from the Graph API REST interface
+.DESCRIPTION
+The function connects to the Graph API Interface and gets ADministrative Templates
+.EXAMPLE
+Get-ADMXPolicy 
+
+Returns any device configuration policy assignment configured in Intune
+.NOTES
+NAME: Get-ADMXPolicy
+#>
+
+[cmdletbinding()]
+
+ 
+$graphApiVersion = "Beta"
+$DCP_resource = "deviceManagement/groupPolicyConfigurations"
+
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)"
+#       $ADMX = Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get
+       (Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).Value
+#$ADMT = Invoke-MSGraphRequest -HttpMethod GET -Url $uri
+#$AllADMT = $ADMT.value
+        
+}
+####################################################
+
+Function Get-DeviceManagementIntent(){
+
+<#
+.SYNOPSIS
+This function is used to get Device Management Intents from the Graph API REST interface
+.DESCRIPTION
+The function connects to the Graph API Interface and gets Device Management Intents
+.EXAMPLE
+Get-DeviceManagementIntent
+
+Returns any device configuration policy assignment configured in Intune
+.NOTES
+NAME: Get-DeviceManagementIntent
+#>
+
+[cmdletbinding()]
+
+ 
+$graphApiVersion = "Beta"
+$DCP_resource = "deviceManagement/intents"
+
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)"
+       (Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).Value
+#$ADMT = Invoke-MSGraphRequest -HttpMethod GET -Url $uri
+#$AllADMT = $ADMT.value
+        
+}
+####################################################
+
 Function Add-DeviceConfigurationPolicyAssignment(){
 
     <#
@@ -226,7 +321,7 @@ Function Add-DeviceConfigurationPolicyAssignment(){
     
     $graphApiVersion = "Beta"
     $Resource = "deviceManagement/deviceConfigurations/$ConfigurationPolicyId/assign"
-    $ex = "default"    
+ 
         try {
     
             if(!$ConfigurationPolicyId){
@@ -370,9 +465,318 @@ Function Add-DeviceConfigurationPolicyAssignment(){
 
 ####################################################
 
+Function Remove-DeviceConfigurationPolicy(){
+
+<#
+.SYNOPSIS
+This function is used to remove a device configuration policies from the Graph API REST interface
+.DESCRIPTION
+The function connects to the Graph API Interface and removes a device configuration policies
+.EXAMPLE
+Remove-DeviceConfigurationPolicy -id $id
+Removes a device configuration policies configured in Intune
+.NOTES
+NAME: Remove-DeviceConfigurationPolicy
+#>
+
+[cmdletbinding()]
+
+param
+(
+    $id
+)
+
+$graphApiVersion = "Beta"
+$DCP_resource = "deviceManagement/deviceConfigurations"
+
+    try {
+
+        if($id -eq "" -or $id -eq $null){
+
+        write-host "No id specified for device configuration, can't remove configuration..." -f Red
+        write-host "Please specify id for device configuration..." -f Red
+        break
+
+        }
+
+        else {
+
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)/$id"
+        Invoke-RestMethod -Uri $uri -Headers $authToken -Method Delete
+
+        }
+
+    }
+
+    catch {
+
+    $ex = $_.Exception
+    $errorResponse = $ex.Response.GetResponseStream()
+    $reader = New-Object System.IO.StreamReader($errorResponse)
+    $reader.BaseStream.Position = 0
+    $reader.DiscardBufferedData()
+    $responseBody = $reader.ReadToEnd();
+    Write-Host "Response content:`n$responseBody" -f Red
+    Write-Error "Request to $Uri failed with HTTP Status $($ex.Response.StatusCode) $($ex.Response.StatusDescription)"
+    write-host
+    break
+
+    }
+
+}
+
+####################################################
+
+Function Remove-ADMXTemplateConfiguration(){
+
+<#
+.SYNOPSIS
+This function is used to remove an administrative tempalte from the Graph API REST interface
+.DESCRIPTION
+The function connects to the Graph API Interface and removes an administrative template
+.EXAMPLE
+Remove-ADMXTemplateConfiguration -id $id
+Removes an administrative template policy configured in Intune
+.NOTES
+NAME: Remove-ADMXTemplateConfiguration
+#>
+
+[cmdletbinding()]
+
+param
+(
+    $id
+)
+
+$graphApiVersion = "Beta"
+$DCP_resource = "deviceManagement/groupPolicyConfigurations"
+
+    try {
+
+        if($id -eq "" -or $id -eq $null){
+
+        write-host "No id specified for device configuration, can't remove configuration..." -f Red
+        write-host "Please specify id for device configuration..." -f Red
+        break
+
+        }
+
+        else {
+
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)/$id"
+        Invoke-RestMethod -Uri $uri -Headers $authToken -Method Delete
+
+        }
+
+    }
+
+    catch {
+
+    $ex = $_.Exception
+    $errorResponse = $ex.Response.GetResponseStream()
+    $reader = New-Object System.IO.StreamReader($errorResponse)
+    $reader.BaseStream.Position = 0
+    $reader.DiscardBufferedData()
+    $responseBody = $reader.ReadToEnd();
+    Write-Host "Response content:`n$responseBody" -f Red
+    Write-Error "Request to $Uri failed with HTTP Status $($ex.Response.StatusCode) $($ex.Response.StatusDescription)"
+    write-host
+    break
+
+    }
+
+}
+
+####################################################
+
+Function Remove-deviceManagementintents(){
+
+<#
+.SYNOPSIS
+This function is used to remove a device configuration policies from the Graph API REST interface
+.DESCRIPTION
+The function connects to the Graph API Interface and removes a device configuration policies
+.EXAMPLE
+Remove-deviceManagementintents -id $id
+Removes a device configuration policies configured in Intune
+.NOTES
+NAME: Remove-deviceManagementintents
+#>
+
+[cmdletbinding()]
+
+param
+(
+    $id
+)
+
+$graphApiVersion = "Beta"
+$DCP_resource = "deviceManagement/intents"
+
+    try {
+
+        if($id -eq "" -or $id -eq $null){
+
+        write-host "No id specified for device management intent, can't remove configuration..." -f Red
+        write-host "Please specify id for device management intent..." -f Red
+        break
+
+        }
+
+        else {
+
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)/$id"
+        Invoke-RestMethod -Uri $uri -Headers $authToken -Method Delete
+
+        }
+
+    }
+
+    catch {
+
+    $ex = $_.Exception
+    $errorResponse = $ex.Response.GetResponseStream()
+    $reader = New-Object System.IO.StreamReader($errorResponse)
+    $reader.BaseStream.Position = 0
+    $reader.DiscardBufferedData()
+    $responseBody = $reader.ReadToEnd();
+    Write-Host "Response content:`n$responseBody" -f Red
+    Write-Error "Request to $Uri failed with HTTP Status $($ex.Response.StatusCode) $($ex.Response.StatusDescription)"
+    write-host
+    break
+
+    }
+
+}
+
+####################################################
+
+Function Set-DeviceConfigAssignments(){
+
+param
+(
+    [switch]$remove
+)
+
+$TargetGroup = Get-Groups | Get-MSGraphAllPages | Where-Object displayName -eq $_.Group
+$TargetGroupID = $TargetGroup.id
+
+if($TargetGroupId -eq $null -or $TargetGroupId -eq ""){
+
+    Write-Host "AAD Group - '$_.Group' doesn't exist, please specify a valid AAD Group..." -ForegroundColor Red
+    Write-Host
+
+    }
+
+if ($_.Type -eq 'DeviceConfig') {
+
+$deviceConfigurationObject = Get-DeviceManagement_DeviceConfigurations | Get-MSGraphAllPages | Where-Object displayName -eq $_.Policy
+$ConfigurationPolicyId = $deviceConfigurationObject.id
+$PolicyName = $_.Policy
+Write-host "Number of $PolicyName policies found: $($deviceConfigurationObject.DisplayName.Count)" -ForegroundColor cyan
+
+Foreach ($config in $deviceConfigurationObject) {
+Write-host $Config.displayName "   "$Config.id -ForegroundColor Yellow
+
+if ($remove.isPresent){
+Remove-DeviceConfigurationPolicy -id $config.id
+Write-Host $config.id " Removed" -ForegroundColor Cyan
+}
+                                              }
+
+if($ConfigurationPolicyId -eq $null -or $ConfigurationPolicyId -eq ""){
+
+    Write-Host "Configuration Policy ID for $PolicyName doesn't exist" -ForegroundColor Red
+    Write-Host
+
+    }
+}
+
+if ($_.Type -eq 'ADMX') {
+
+$deviceConfigurationObject = Get-ADMXPolicy | Get-MSGraphAllPages | Where-Object displayName -eq $_.Policy
+$ConfigurationPolicyId = $deviceConfigurationObject.id
+$PolicyName = $_.Policy
+Write-host "Number of $PolicyName policies found: $($deviceConfigurationObject.DisplayName.Count)" -ForegroundColor cyan
+
+Foreach ($config in $deviceConfigurationObject) {
+Write-host $Config.displayName "   "$Config.id -ForegroundColor Yellow
+
+if ($remove.isPresent){ 
+Remove-ADMXTemplateConfiguration -id $config.id
+Write-Host $config.id " Removed" -ForegroundColor Cyan
+                      }
+                                                }
+
+                         }
+                         
+
+if($ConfigurationPolicyId -eq $null -or $ConfigurationPolicyId -eq ""){
+
+    Write-Host "Configuration Policy ID for $PolicyName doesn't exist" -ForegroundColor Red
+    Write-Host
+
+    }
+
+if ($_.Type -eq 'Intent') {
+
+$deviceConfigurationObject = Get-DeviceManagementIntent | Get-MSGraphAllPages | Where-Object displayName -eq $_.Policy
+$ConfigurationPolicyId = $deviceConfigurationObject.id
+$PolicyName = $_.Policy
+Write-host "Number of $PolicyName policies found: $($deviceConfigurationObject.DisplayName.Count)" -ForegroundColor cyan
+
+Foreach ($config in $deviceConfigurationObject) {
+Write-host $Config.displayName "   "$Config.id -ForegroundColor Yellow
+
+if ($remove.isPresent){
+Remove-DeviceManagementIntents -id $config.id
+Write-Host $config.id " Removed" -ForegroundColor Cyan
+                      }
+
+                                              }
+                         }
+
+if($ConfigurationPolicyId -eq $null -or $ConfigurationPolicyId -eq ""){
+
+    Write-Host "Configuration Policy ID for $PolicyName doesn't exist" -ForegroundColor Red
+    Write-Host
+
+    }
+
+if ($_.Type -eq 'Compliance') {
+
+$deviceConfigurationObject = Get-DeviceManagement_DeviceCompliancePolicies | Get-MSGraphAllPages | Where-Object displayName -eq $_.Policy
+$ConfigurationPolicyId = $deviceConfigurationObject.id
+$PolicyName = $_.Policy
+Write-host "Number of $PolicyName policies found: $($deviceConfigurationObject.DisplayName.Count)" -ForegroundColor cyan
+
+Foreach ($config in $deviceConfigurationObject) {
+Write-host $Config.displayName "   "$Config.id -ForegroundColor Yellow
+
+if ($remove.isPresent){
+Remove-IntuneDeviceCompliancePolicy -id $config.id
+Write-Host $config.id " Removed" -ForegroundColor Cyan
+                      }
+                                              }
+                         }
+
+if($ConfigurationPolicyId -eq $null -or $ConfigurationPolicyId -eq ""){
+
+    Write-Host "Configuration Policy ID for $PolicyName doesn't exist" -ForegroundColor Red
+    Write-Host
+
+    }
+
+
+#Add-DeviceConfigurationPolicyAssignment -ConfigurationPolicyId $ConfigurationPolicyId -TargetGroupId $TargetGroupId -AssignmentType Included
+Clear-Variable -Name "TargetGroupID"
+}
+
+################################################################
 
 #Modify the below variables to match the customer requirements
 
+$RemoveExisting = "Yes"
 $PolicyNamePrefix = "ADJ_"
 $GroupNamePrefix = ""
 $HomepageURL = "https://www.bbc.co.uk"
@@ -392,39 +796,13 @@ $JSON5 = ".\Device Configurations\UK_Windows_EPProtection.json"
 
 
 
-#Import Functions
-
-# Import Modules and connect to Azure AD and MSGraph
-
-Function Configure-Terminal {
-$Modules = "MSGraphFunctions", "IntuneBackupAndRestore"
-    Foreach ($Module in $Modules) {
-        try {
-            if (Get-Module -ListAvailable -Name $Module) { 
-                Write-host "The module $Module is installed, continuing..."
-            } 
-            else {
-                Write-host "The module $Module being installed..."
-                Install-Module $Module -Scope CurrentUser -force
-            }
-        }
-        catch [System.Exception] {
-            Write-Warning -Message "An error occured while preparing the migration terminal: $($_.Exception.Message)";
-        }
-    }
-}
-
-
-
 #region Authentication
 
-write-host
-#Configure Import MSGraph and IntuneBackup and Restore functions
-write-host "Configure Import MSGraph and IntuneBackup and Restore functions" -ForegroundColor Green
-Write-host
 
 
 Configure-Terminal
+Connect-AzureAD -AccountID $User
+Connect-MSGraph
 
 write-host "Configure Azure AD module and Autentication Token" -ForegroundColor Green
 Write-host
@@ -554,12 +932,12 @@ $DynamicSecurityGroups = @(
     [pscustomobject]@{Group="ADJ_Autopilot_Group2";Description="Used in conjunction with Autopilot Service and Office 2016 app suite deployment";MembershipRule="(device.devicePhysicalIds -any _ -eq ""[OrderID]:UKO2016"")"}
     )
 
-$DynamicSecurityGroups | ForEach-Object
-{
+$DynamicSecurityGroups | ForEach-Object {
 
-if (Get-AzureADMSGroup -DisplayName $_.Group)
+if (Get-AzureADMSGroup -SearchString $_.Group)
  {
-Write-Warning "A Group $_.Group already exists in Azure Active Directory."
+$GroupName = $_.Group
+Write-Warning "A Group $GroupName already exists in Azure Active Directory."
  }
 
 else
@@ -583,26 +961,26 @@ $LocalUserAdmin = $GroupNamePrefix + "LocalUserAdmin"
 $WHfB = $GroupNamePrefix + "WHfB"
 
 $AssignedSecurityGroups = @(
-    [pscustomobject]@{Group=$GeneralUserProfiles;Description="Used to assign core user based Configuration Profiles and Applications"}
-    [pscustomobject]@{Group=$GeneralDeviceProfiles;Description="Used to assign core device based Configuration Profiles and Application"}
-    [pscustomobject]@{Group=$StandardDesktop_Group1;Description="User assigned general device restrictions and Microsoft 365 Apps based start layout"}
-    [pscustomobject]@{Group=$StandardDesktop_Group2;Description="Used assigned general device restrictions and Office 2016 Apps based start layout"}
-    [pscustomobject]@{Group=$WU_Test_Ring;Description="Used to assign Windows 10 test update deployment ring for Quality and Feature update testing"}
-    [pscustomobject]@{Group=$WU_Pilot_Ring;Description="Used to assign Windows 10 pilot update deployment ring for Quality and Feature update pilot group deployment"}
-    [pscustomobject]@{Group=$WU_Production_Ring;Description="Used to assign Windows 10 production deployment ring for Quality and Feature Updates production deployment"}
-    [pscustomobject]@{Group=$MDMEnrollment_Group1;Description="User group for for automated MDM enrollment"}
-    [pscustomobject]@{Group=$LocalUserAdmin;Description="Used to set Primary user of a device as a local administrator"}
-    [pscustomobject]@{Group=$WHfB;Description="User group used to enable Windows Hello for Business"}
+    [pscustomobject]@{Group="$GeneralUserProfiles";Description="Used to assign core user based Configuration Profiles and Applications"}
+    [pscustomobject]@{Group="$GeneralDeviceProfiles";Description="Used to assign core device based Configuration Profiles and Application"}
+    [pscustomobject]@{Group="$StandardDesktop_Group1";Description="User assigned general device restrictions and Microsoft 365 Apps based start layout"}
+    [pscustomobject]@{Group="$StandardDesktop_Group2";Description="Used assigned general device restrictions and Office 2016 Apps based start layout"}
+    [pscustomobject]@{Group="$WU_Test_Ring";Description="Used to assign Windows 10 test update deployment ring for Quality and Feature update testing"}
+    [pscustomobject]@{Group="$WU_Pilot_Ring";Description="Used to assign Windows 10 pilot update deployment ring for Quality and Feature update pilot group deployment"}
+    [pscustomobject]@{Group="$WU_Production_Ring";Description="Used to assign Windows 10 production deployment ring for Quality and Feature Updates production deployment"}
+    [pscustomobject]@{Group="$MDMEnrollment_Group1";Description="User group for for automated MDM enrollment"}
+    [pscustomobject]@{Group="$LocalUserAdmin";Description="Used to set Primary user of a device as a local administrator"}
+    [pscustomobject]@{Group="$WHfB";Description="User group used to enable Windows Hello for Business"}
 
     )
 
 
-$AssignedSecurityGroups| ForEach-Object
-{
+$AssignedSecurityGroups| ForEach-Object {
 
-if (Get-AzureADGroup -DisplayName $_.Group)
+if (Get-AzureADGroup -SearchString $_.Group)
  {
-Write-Warning "A Group $_.Group already exists in Azure Active Directory."
+$GroupName = $_.Group
+Write-Warning "A Group $GroupName already exists in Azure Active Directory."
  }
 
 else
@@ -624,7 +1002,7 @@ $DR_WithM365Apps_StartLayout = $PolicyNamePrefix + "DR_WithM365Apps_StartLayout"
 $DR_WithO2016_StartLayout  = $PolicyNamePrefix + "DR_WithO2016_StartLayout"
 $EPProtection  = $PolicyNamePrefix + "EPProtection"
 $Windows_Settings_Chrome  = $PolicyNamePrefix + "Windows_Settings_Chrome"
-$Windows_Settings_Windows  = $PolicyNamePrefix + "Windows_Settings_Windows"
+$Settings_Windows  = $PolicyNamePrefix + "Settings_Windows"
 $Windows_Compliance  = $PolicyNamePrefix + "Windows_Compliance"
 $Windows_MDMSecurityBaseLine  = $PolicyNamePrefix + "Windows_MDMSecurityBaseLine"
 $localadmin  = $PolicyNamePrefix + "localadmin"
@@ -639,11 +1017,11 @@ $MSDefender_AV = $PolicyNamePrefix + "MSDefender_AV"
 $MSDefender_AVExclusions = $PolicyNamePrefix + "MSDefender_AVExclusions"
 $Firewall = $PolicyNamePrefix + "Firewall"
 $FirewallRules = $PolicyNamePrefix + "FirewallRules"
-$PowerManagement = $PolicyNamePrefix + "PowerManagement"
+$PowerManagement = $PolicyNamePrefix + "PowerManagement’"
 $AdminTemplates = $PolicyNamePrefix + "AdminTemplates"
 $Comgt_M365Apps = $PolicyNamePrefix + "Comgt_M365Apps"
 $WU_01_Test_Ring = $PolicyNamePrefix + "WU_01_Test_Ring"
-$WU_02_Pilot_Ring= $PolicyNamePrefix + "WU_02_Pilot_Rings"
+$WU_02_Pilot_Ring= $PolicyNamePrefix + "WU_02_Pilot_Ring"
 $WU_03_Production_Ring = $PolicyNamePrefix + "WU_03_Production_Ring"
 
 
@@ -651,82 +1029,60 @@ $WU_03_Production_Ring = $PolicyNamePrefix + "WU_03_Production_Ring"
 #Assign groups to user targeted profiles
 
 $UserTargetedProfileAssign = @(
-    [pscustomobject]@{Policy=$ApplicationControlPolicy;Group=$GeneralUserProfiles}
-    [pscustomobject]@{Policy=$DR_WithM365Apps_StartLayout;Group=$StandardDesktop_Group1}
-    [pscustomobject]@{Policy=$DR_WithO2016_StartLayout;Group=$StandardDesktop_Group2}
-    [pscustomobject]@{Policy=$EPProtection;Group=$GeneralUserProfiles}
-    [pscustomobject]@{Policy=$Windows_Settings_Chrome;Group=$GeneralUserProfiles}
-    [pscustomobject]@{Policy=$Windows_Settings_Windows;Group=$GeneralUserProfiles}
-    [pscustomobject]@{Policy=$Windows_Compliance;Group=$GeneralUserProfiles}
-    [pscustomobject]@{Policy=$Windows_MDMSecurityBaseLine ;Group=$GeneralUserProfiles}
-    [pscustomobject]@{Policy=$Windows_Compliance;Group=$GeneralUserProfiles}
-    [pscustomobject]@{Policy=$localadmin;Group=$localUserAdmin}
+    [pscustomobject]@{Policy=$ApplicationControlPolicy;Group=$GeneralUserProfiles;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$DR_WithM365Apps_StartLayout;Group=$StandardDesktop_Group1;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$DR_WithO2016_StartLayout;Group=$StandardDesktop_Group2;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$EPProtection;Group=$GeneralUserProfiles;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$Windows_Settings_Chrome;Group=$GeneralUserProfiles;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$Settings_Windows;Group=$GeneralUserProfiles;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$Windows_Compliance;Group=$GeneralUserProfiles;Type='Compliance'}
+    [pscustomobject]@{Policy=$Windows_MDMSecurityBaseLine;Group=$GeneralUserProfiles;Type='Intent'}
+    [pscustomobject]@{Policy=$localadmin;Group=$localUserAdmin;Type='DeviceConfig'}
 
 )
 
 
-$UserTargetedProfileAssign | ForEach-Object {
+$UserTargetedProfileAssign | ForEach-Object {Set-DeviceConfigAssignments}
 
-$TargetGroup = Get-Groups | Get-MSGraphAllPages | Where-Object displayName -eq $_.Group
-$TargetGroupID = $TargetGroup.id
 
-    if($TargetGroupId -eq $null -or $TargetGroupId -eq ""){
 
-    Write-Host "AAD Group - '$_.Group' doesn't exist, please specify a valid AAD Group..." -ForegroundColor Red
-    Write-Host
-    exit
-
-    }
-
-$deviceConfigurationObject = Get-DeviceManagement_DeviceConfigurations | Get-MSGraphAllPages | Where-Object displayName -eq $_.Policy
-
-$ConfigurationPolicyId = $deviceConfigurationObject.id
-if($ConfigurationPolicyId -eq $null -or $ConfigurationPolicyId -eq ""){
-
-    Write-Host "Configuration Policy ID for $_.Policy doesn't exist" -ForegroundColor Red
-    Write-Host
-    exit
-
-    }
-
-Add-DeviceConfigurationPolicyAssignment -ConfigurationPolicyId $ConfigurationPolicyId -TargetGroupId $TargetGroupId -AssignmentType Included
-}
 
 #Assign groups to device targeted profiles
 
 $DeviceTargetedProfileAssign = @(
-    [pscustomobject]@{Policy=$DeliveryOptimisation;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$IDProtection;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$AdminTemplates;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$Bitlocker;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$MSDefender_AV;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$MSDefender_AVExclusions;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$Firewall;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$FirewallRules;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$PowerManagement;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$AdminTemplates;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$Comgt_M365Apps;Group=$GeneralDeviceProfiles}
-    [pscustomobject]@{Policy=$WU_01_Test_Ring;Group=$WU_Test_Ring}
-    [pscustomobject]@{Policy=$WU_02_Pilot_Ring;Group=$WU_Pilot_Ring}
-    [pscustomobject]@{Policy=$WU_03_Production_Ring;Group=$WU_Production_Ring}
+    [pscustomobject]@{Policy=$DeliveryOptimisation;Group=$GeneralDeviceProfiles;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$IDProtection;Group=$GeneralDeviceProfiles;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$AdminTemplates;Group=$GeneralDeviceProfiles;Type='ADMX'}
+    [pscustomobject]@{Policy=$Bitlocker;Group=$GeneralDeviceProfiles;Type='Intent'}
+    [pscustomobject]@{Policy=$MSDefender_AV;Group=$GeneralDeviceProfiles;Type='Intent'}
+    [pscustomobject]@{Policy=$MSDefender_AVExclusions;Group=$GeneralDeviceProfiles;Type='Intent'}
+    [pscustomobject]@{Policy=$Firewall;Group=$GeneralDeviceProfiles;Type='Intent'}
+    [pscustomobject]@{Policy=$FirewallRules;Group=$GeneralDeviceProfiles;Type='Intent'}
+    [pscustomobject]@{Policy=$PowerManagement;Group=$GeneralDeviceProfiles;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$Comgt_M365Apps;Group=$GeneralDeviceProfiles;Type='ADMX'}
+    [pscustomobject]@{Policy=$WU_01_Test_Ring;Group=$WU_Test_Ring;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$WU_02_Pilot_Ring;Group=$WU_Pilot_Ring;Type='DeviceConfig'}
+    [pscustomobject]@{Policy=$WU_03_Production_Ring;Group=$WU_Production_Ring;Type='DeviceConfig'}
 )
 
+$DeviceTargetedProfileAssign | ForEach-Object {Set-DeviceConfigAssignments}
+
+
+<##
+Foreach ($configid in $ConfigurationPolicyId) {
+write-host $ConfigurationPolicyId
+                                              }
+
+
+cls
 $DeviceTargetedProfileAssign | ForEach-Object {
 
-$TargetGroup = Get-Groups | Get-MSGraphAllPages | Where-Object displayName -eq $_.Group
-$TargetGroupID = $TargetGroup.id
+if ($_.Type -eq 'ADMX') {
 
-    if($TargetGroupId -eq $null -or $TargetGroupId -eq ""){
-
-    Write-Host "AAD Group - '$_.Group' doesn't exist, please specify a valid AAD Group..." -ForegroundColor Red
-    Write-Host
-    exit
-
-    }
-
-$deviceConfigurationObject = Get-DeviceManagement_DeviceConfigurations | Get-MSGraphAllPages | Where-Object displayName -eq $_.Policy
-
+$deviceConfigurationObject = Get-ADMXPolicy | Where-Object displayName -eq $_.Policy
 $ConfigurationPolicyId = $deviceConfigurationObject.id
+write-host $ConfigurationPolicyId
+
 if($ConfigurationPolicyId -eq $null -or $ConfigurationPolicyId -eq ""){
 
     Write-Host "Configuration Policy ID for $_.Policy doesn't exist" -ForegroundColor Red
@@ -734,9 +1090,56 @@ if($ConfigurationPolicyId -eq $null -or $ConfigurationPolicyId -eq ""){
     exit
 
     }
+                         }
 
-Add-DeviceConfigurationPolicyAssignment -ConfigurationPolicyId $ConfigurationPolicyId -TargetGroupId $TargetGroupId -AssignmentType Included
+
 }
+
+https://timmyit.com/2019/12/04/get-all-assigned-intune-policies-and-apps-per-azure-ad-group/
+$deviceConfigurationObject = Get-DeviceManagement_DeviceConfigurations.displayname | Get-MSGraphAllPages | Where-Object displayName -eq "$AdminTemplates"
+Get-DeviceManagement_DeviceConfigurations | Where { $PSItem.'DisplayName' -like '*$AdminTemplates*' }
+(Get-DeviceManagement_DeviceConfigurations).DisplayName | Get-MSGraphAllPages
+(Get-DeviceManagementIntent).DisplayName | Get-MSGraphAllPages
+(Get-ADMXPolicy).DisplayName
+
+(Get-IntuneDeviceConfigurationPolicy).DisplayName | Get-MSGraphAllPages
+(Get-DeviceManagement_DeviceConfigurations).DisplayName | Get-MSGraphAllPages | Where-Object displayName -eq $PowerManagement
+
+Connect-MSGraph -ForceInteractive
+Update-MSGraphEnvironment -SchemaVersion beta
+Connect-MSGraph
+
+$deviceConfigurationObject = Get-ADMXPolicy | Where-Object displayName -eq $AdminTemplates
+$ConfigurationPolicyId = $deviceConfigurationObject.id
+
+(Get-ADMXPolicy).DisplayName, (Get-ADMXPolicy).ID
+
+
+Remove-ADMXTemplateConfiguration -id fb49c7ef-0503-4bf2-a42d-e1d06fc52f37
+
+
+# Administrative templates
+$Resource = "deviceManagement/groupPolicyConfigurations"
+$graphApiVersion = "Beta"
+$uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)?`$expand=Assignments"
+$ADMT = Invoke-MSGraphRequest -HttpMethod GET -Url $uri
+$AllADMT = $ADMT.value
+Write-host "Number of Device Administrative Templates found: $($AllADMT.DisplayName.Count)" -ForegroundColor cyan
+Foreach ($Config in $AllADMT) {
+ 
+Write-host $Config.DisplayName "   " $Config.ID -ForegroundColor Yellow
+#Write-host $Config -ForegroundColor Yellow
+
+}
+
+Remove-DeviceConfigurationPolicy -id ff42f5ef-b27c-4e8d-84f3-57f3bb5cbff9
+Get-ADMXPolicy -id 04130c85-ed27-48b3-ae53-205c46ecbb3f
+###>
+
+
+
+#Delete template device configuration assignments
+
 
 
 Stop-Transcript
